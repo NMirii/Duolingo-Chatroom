@@ -5,7 +5,7 @@ export const ROLES = ["student", "teacher"] as const;
 
 export const chatSchema = z.object({
   course: z.enum([...COURSES], {
-    errorMap: () => ({ message: "Please select a valid course from the list." }),
+    message: "Please select a valid course from the list.",
   }),
   language: z.string().min(2, "Language code must be at least 2 characters (e.g., 'en')"),
   role: z.enum([...ROLES]),
