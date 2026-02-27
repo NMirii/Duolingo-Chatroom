@@ -1,62 +1,74 @@
 "use client";
-import { useState } from "react";
-import { chatSchema } from "../schemas/chatSchema";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { chatSchema, type ChatFormData, COURSES, ROLES } from "../schemas/chatSchema";
+import { type Message } from "../app/page";
 
-export default function Filter({ onSend, blockedWords, onBlock }: any) {
-  const [course, setCourse] = useState("Spanish");
-  const [language, setLanguage] = useState("en");
-  const [role, setRole] = useState("student");
-  const [message, setMessage] = useState("");
-  const [newWord, setNewWord] = useState("");
+interface FilterProps {
+  onSend: (data: Message) => void;
+  blockedWords: string[];
+  onBlock: (word: string) => void;
+}
 
-  const handleSend = () => {
-    const result = chatSchema.safeParse({ course, language, role, message });
+export default function Filter({ onSend, blockedWords, onBlock }: FilterProps) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<ChatFormData>({
+    resolver: zodResolver(chatSchema),
+    defaultValues: {
+      course: "Spanish",
+      language: "en",
+      role: "student",
+      message: "",
+    },
+  });
 
-    if (!result.success) {
-      alert(result.error.issues[0].message);
-      return;
-    }
+  const currentRole = watch("role");
 
-    const isBlocked = blockedWords.some((word: string) => {
-      const regex = new RegExp(`\\b${word}\\b`, "i");
-      return regex.test(message);
-    });
-
-    if (role === "student" && isBlocked) {
-      alert("This message contains prohibited words!");
-      return;
-    }
+  const onSubmit = (data: ChatFormData) => {
+    const isBlocked =
+      data.role === "student" &&
+      blockedWords.some((word) => {
+        const wordsInMessage = data.message.toLowerCase().split(/\s+/);
+        return wordsInMessage.includes(word.toLowerCase());
+      });
 
     onSend({
-      role,
-      message,
-      course,
-      language,
+      ...data,
       timestamp: new Date().toLocaleTimeString(),
+      isBlocked,
     });
-    setMessage("");
+
+    setValue("message", "");
   };
 
   return (
-    <div className="p-6 bg-white rounded-2xl border border-gray-200 space-y-4 shadow-sm">
-      {role === "teacher" && (
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-6 bg-white rounded-2xl border border-gray-200 space-y-4 shadow-sm"
+    >
+      {currentRole === "teacher" && (
         <div className="flex flex-col gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
-          <label className="text-xs font-semibold text-gray-500 uppercase ml-1">
-            Block New Word
-          </label>
+          <label className="text-xs font-semibold text-gray-500 uppercase ml-1">Block Word</label>
           <div className="flex gap-4">
             <input
+              id="newWord"
               className="flex-1 p-3 border rounded-lg text-sm"
-              placeholder="Type a word to block..."
-              value={newWord}
-              onChange={(e) => setNewWord(e.target.value)}
+              placeholder="Type word..."
             />
             <button
+              type="button"
               onClick={() => {
-                onBlock(newWord);
-                setNewWord("");
+                const el = document.getElementById("newWord") as HTMLInputElement;
+                onBlock(el.value);
+                el.value = "";
               }}
-              className="bg-black text-white hover:bg-zinc-800 px-6 py-2 rounded-lg text-sm"
+              className="bg-black text-white px-6 py-2 rounded-lg text-sm"
             >
               Block
             </button>
@@ -66,37 +78,28 @@ export default function Filter({ onSend, blockedWords, onBlock }: any) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700 ml-1">
-            Course
-          </label>
+          <label className="text-sm font-medium text-gray-700 ml-1">Course</label>
           <select
-            value={course}
-            onChange={(e) => setCourse(e.target.value)}
-            className="border rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-black outline-none"
+            {...register("course")}
+            className="border rounded-lg px-3 py-2 bg-white outline-none focus:ring-1 focus:ring-black"
           >
-            <option value="Spanish">Spanish</option>
-            <option value="English">English</option>
-            <option value="French">French</option>
-            <option value="Portuguese">Portuguese</option>
-            <option value="Azerbaijani">Azerbaijani</option>
-            <option value="Turkish">Turkish</option>
+            {COURSES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
           </select>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700 ml-1">
-            Language
-          </label>
+          <label className="text-sm font-medium text-gray-700 ml-1">Language</label>
           <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="border rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-black outline-none"
+            {...register("language")}
+            className="border rounded-lg px-3 py-2 bg-white outline-none focus:ring-1 focus:ring-black"
           >
             <option value="en">English (en)</option>
+            <option value="es">Spanish (es)</option>
+            <option value="pr">Portuguese (pr)</option>
             <option value="az">Azerbaijani (az)</option>
             <option value="fr">French (fr)</option>
-            <option value="pt">Portuguese (pt)</option>
-            <option value="es">Spanish (es)</option>
             <option value="tr">Turkish (tr)</option>
           </select>
         </div>
@@ -104,43 +107,37 @@ export default function Filter({ onSend, blockedWords, onBlock }: any) {
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700 ml-1">Role</label>
           <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="border rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-black outline-none"
+            {...register("role")}
+            className="border rounded-lg px-3 py-2 bg-white outline-none focus:ring-1 focus:ring-black"
           >
-            <option value="student">Student</option>
-            <option value="teacher">Teacher</option>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
           </select>
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-gray-700 ml-1">
-          Message
-        </label>
+        <label className="text-sm font-medium text-gray-700 ml-1">Message</label>
         <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Say something helpful..."
+          {...register("message")}
+          placeholder="Say something..."
           rows={4}
           className="w-full border rounded-lg px-3 py-2 resize-none outline-none focus:ring-1 focus:ring-black"
         />
+        {errors.message && (
+          <span className="text-red-500 text-xs">{errors.message.message}</span>
+        )}
       </div>
 
       <div className="flex justify-end gap-3 pt-2">
-        <button
-          onClick={() => setMessage("")}
-          className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm font-medium"
-        >
-          Refresh
+        <button type="button" onClick={() => reset()} className="px-4 py-2 border rounded-lg text-sm">
+          Reset
         </button>
-        <button
-          onClick={handleSend}
-          className="px-6 py-2 rounded-lg bg-black text-white hover:bg-zinc-800 text-sm font-medium transition-colors"
-        >
+        <button type="submit" className="px-6 py-2 rounded-lg bg-black text-white text-sm">
           Send
         </button>
       </div>
-    </div>
+    </form>
   );
 }
